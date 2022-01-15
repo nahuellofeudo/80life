@@ -1,4 +1,3 @@
-; Size of the screen buffer = 80*25
         ;org 100h
         org 0h
         ld SP, 0xfff0 
@@ -8,6 +7,8 @@
 ; Screen definition
 width:  equ 80
 height: equ 25
+
+; Size of the screen buffer = 80*25
 buflen: equ width * height
 
 ; Escape codes
@@ -18,22 +19,22 @@ HOME:   db 27
 CLRSCR: db 27
         db "[2J$"
 
-; System calls
+; System calls (unused for now, will be needed for CP/M version)
 BDOS:           equ 05
 C_WRITE:        equ 2
-PRINT_STR:      equ 9
 
-;------------ Variables
+; Constants for states of individual cells
 alive:          equ 1
 alive_char:     equ 'O'
 dead:           equ 0
 dead_char:      equ ' '
 
+;------------ Buffers for current and previous states
+buf0:   ds buflen
+buf1:   ds buflen
 
-buf0:   equ prog_end
-buf1:   equ prog_end + 2000
 
-        ; For PRNG
+; Variables used by the PRNG
 rngx:   db 01h
 rngy:   db 53h
 rngz:   db 22h
@@ -50,12 +51,12 @@ printchar:
         push HL
 
         ; Uncomment to use CP/M I/O routines
-        ;ld C, 2
-        ;call 5
+        ;ld C, C_WRITE
+        ;call BDOS
+        ;jp printchar_end
 
-        ; Uncomment to use direct I/O routines
+
         ; Wait until the line is clear
-
         ld C, 1
 
 printchar_wait:
@@ -65,6 +66,7 @@ printchar_wait:
         ; Output character
         out (C), E
 
+printchar_end:
         pop HL
         pop DE
         pop BC
@@ -116,9 +118,9 @@ start:
 life_loop:
         call go_home
         call printbuf    ; Print (IX)
-        ;halt
         call updatebuf   ; Update state (IY) --> (IX)
         call copybuf     ; Copy (IX) --> (IY)
+        halt
         jp life_loop
 
 
@@ -166,7 +168,6 @@ initbuf_end:
 
 ;-----------------------------------------------------
 ; Copies buffer pointed at by IX into buffer pointed at by IY
-; 
 copybuf:
         push AF
         push BC
@@ -339,7 +340,6 @@ calculate_position_middle_right:
         ld E, A
 
 calculate_position_end_neighbors:
-        ;halt
         ; Check the state of the cell itself
         ld A, (IY + 0)
         jp Z, calculate_position_dead
@@ -529,7 +529,6 @@ printbuf_print:
 clear_screen:
         push DE
         ld DE, CLRSCR
-        ld C, PRINT_STR
         call printstr
 
         pop DE
