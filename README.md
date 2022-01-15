@@ -25,5 +25,5 @@ $ bin2hex 80life.bin 80life.hex -o 0
 ### Run with
 
 ```
-$ z80sim -x 80life.bin
+$ z80sim -x 80life.hex
 ```

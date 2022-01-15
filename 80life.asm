@@ -1,5 +1,6 @@
-        ;org 100h
-        org 0h
+;        org 100h
+        org 00h
+
         ld SP, 0xfff0 
         jp start
 
