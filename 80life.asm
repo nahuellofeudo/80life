@@ -26,13 +26,17 @@ C_WRITE:        equ 2
 
 ; Constants for states of individual cells
 alive:          equ 1
-alive_char:     equ 'O'
 dead:           equ 0
+
+born_char:      equ '.'
+alive_char:     equ 'O'
 dead_char:      equ ' '
+dying_char:     equ '*'
+
 
 ;------------ Buffers for current and previous states
-buf0:   ds buflen
-buf1:   ds buflen
+buf0:   equ 0x4000
+buf1:   equ 0x6000
 
 
 ; Variables used by the PRNG
@@ -118,10 +122,10 @@ start:
 
 life_loop:
         call go_home
-        call printbuf    ; Print (IX)
         call updatebuf   ; Update state (IY) --> (IX)
+        call printbuf    ; Print diff (IX, IY)
         call copybuf     ; Copy (IX) --> (IY)
-        halt
+        ;halt
         jp life_loop
 
 
@@ -342,33 +346,32 @@ calculate_position_middle_right:
 
 calculate_position_end_neighbors:
         ; Check the state of the cell itself
-        ld A, (IY + 0)
+        push IX
+        call calc_offset
+        ld A, (IX + 0)
+        pop IX
         jp Z, calculate_position_dead
         
 calculate_position_alive: 
         ; The cell is alive
-        ; Any live cell with fewer than two live neighbours dies, as if by underpopulation.
-        ld A, 0
+        ; Any live cell with two or three live neighbours lives on to the next generation.
+        ld A, 2
         cp E
-        jp Z, calculate_position_dies
-        
-        ld A, 1
-        cp E
-        jp Z, calculate_position_dies
+        jp Z, calculate_position_lives
 
-        ; Any live cell with more than three live neighbours dies, as if by overpopulation.
         ld A, 3
         cp E
-        jp M, calculate_position_dies
+        jp Z, calculate_position_lives
 
-        ; Any live cell with two or three live neighbours lives on to the next generation.
-        jp calculate_position_lives
+        ; Any live cell with fewer than two live neighbours dies, as if by underpopulation.
+        ; Any live cell with more than three live neighbours dies, as if by overpopulation.
+        jp calculate_position_dies
 
 calculate_position_dead: 
         ; The cell is dead
         ; Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.
         ld A, 3
-        sub E
+        cp E
         jp Z, calculate_position_lives
         jp calculate_position_dies
 
@@ -483,6 +486,7 @@ printbuf:
         push BC
         push DE
         push IX
+        push IY
 
         ; Loop through all the lines
         ld D, height
@@ -496,16 +500,37 @@ printbuf_line_loop:
         jp NZ, printbuf_alive
 
 printbuf_dead:
+        ; Check the previous state
+        ld E, (IY + 0)
+        bit 0, E
+        jp Z, printbuf_dead_dead
+
+printbuf_dead_dying:
+        ld E, dying_char
+        jp printbuf_print
+
+printbuf_dead_dead:
         ld E, dead_char
         jp printbuf_print
 
+
 printbuf_alive:
+        ld E, (IY + 0)
+        bit 0, E
+        jp Z, printbuf_alive_born
+
+printbuf_alive_alive:
         ld E, alive_char
+        jp printbuf_print
+
+printbuf_alive_born:
+        ld E, born_char
 
 printbuf_print:
         call printchar
 
         inc IX
+        inc IY
         dec B
         jr  nz, printbuf_line_loop
 
@@ -521,6 +546,7 @@ printbuf_print:
         dec D
         jr nz, printbuf_line
 
+        pop IY
         pop IX
         pop DE
         pop BC
@@ -544,6 +570,6 @@ go_home:
         ret
  
  prog_end:
- END
+ 
 
 
