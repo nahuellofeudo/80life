@@ -124,6 +124,7 @@ life_loop:
         call go_home
         call updatebuf   ; Update state (IY) --> (IX)
         call printbuf    ; Print diff (IX, IY)
+        ;halt
         call copybuf     ; Copy (IX) --> (IY)
         ;halt
         jp life_loop
@@ -249,7 +250,8 @@ genrand:
 ;-----------------------------------------------------
 ; Calculate the state of one cell
 ; Parameters:
-; IY: buffer
+; IX: The current cell in the current buffer
+; IY: Start of the previous buffer
 ; B: line
 ; C: column
 ; Return A = 1 if alive, A = 0 if dead
@@ -262,7 +264,7 @@ calculate_position:
         ld E, 0
 
         ; Add the row:column offset to IY
-        call calc_offset_iy
+        ;call calc_offset_iy
 
 calculate_position_top:
         ; If line == 0, jump to the bottom line
@@ -272,27 +274,47 @@ calculate_position_top:
 
         ; --- add IY - 80
 calculate_position_top_middle:
+        push BC
+        push IY
+        dec B
+        call calc_offset_iy
         ld A, E
-        add A, (IY - 80)
+        add A, (IY + 0)
         ld E, A
+        pop IY
+        pop BC
 
         ; --- if column > 0 add IY - 81
 calculate_position_top_left:
         ld A, 0
         cp C
         jp Z, calculate_position_top_right
+        push BC
+        push IY
+        dec B
+        dec C
+        call calc_offset_iy
         ld A, E
-        add A, (IY - 81)
+        add A, (IY + 0)
         ld E, A
+        pop IY
+        pop BC
        
         ; --- if column < 79 add IY - 79
 calculate_position_top_right:
         ld A, 79
         cp C
         jp Z, calculate_position_bottom
+        push BC
+        push IY
+        dec B
+        inc C
+        call calc_offset_iy
         ld A, E
-        add A, (IY - 79)
+        add A, (IY + 0)
         ld E, A
+        pop IY
+        pop BC
 
 calculate_position_bottom:
         ; if line == 24, jump to the middle line
@@ -302,27 +324,47 @@ calculate_position_bottom:
 
         ; --- add IY + 80
 calculate_position_bottom_middle:
+        push BC
+        push IY
+        inc B
+        call calc_offset_iy
         ld A, E
-        add A, (IY + 80)
+        add A, (IY + 0)
         ld E, A
+        pop IY
+        pop BC
 
         ; --- if column > 0 add IY + 79
 calculate_position_bottom_left:
         ld A, 0
         cp C
         jp Z, calculate_position_bottom_right
+        push BC
+        push IY
+        inc B
+        dec C
+        call calc_offset_iy
         ld A, E
-        add A, (IY + 79)
+        add A, (IY + 0)
         ld E, A
+        pop IY
+        pop BC
 
         ; --- if column < 79 add  IY + 81
 calculate_position_bottom_right:
         ld A, 79
         cp C
         jp Z, calculate_position_middle
+        push BC
+        push IY
+        inc B
+        inc C
+        call calc_offset_iy
         ld A, E
-        add A, (IY + 81)
+        add A, (IY + 0)
         ld E, A
+        pop IY
+        pop BC
 
 
 calculate_position_middle:        
@@ -331,25 +373,30 @@ calculate_position_middle_left:
         ld A, 0
         cp C
         jp Z, calculate_position_middle_right
+        push IY
+        call calc_offset_iy
+        dec IY
         ld A, E
-        add A, (IY - 1)
+        add A, (IY + 0)
         ld E, A
+        pop IY
 
 calculate_position_middle_right:
         ; if column < 79 add IY + 1
         ld A, 79
         cp C
         jp Z, calculate_position_end_neighbors
+        push IY
+        call calc_offset_iy
+        inc IY
         ld A, E
-        add A, (IY + 1)
+        add A, (IY + 0)
         ld E, A
+        pop IY
 
 calculate_position_end_neighbors:
-        ; Check the state of the cell itself
-        push IX
-        call calc_offset
+        ; Check the state of the cell itself. IX already points to the current cell
         ld A, (IX + 0)
-        pop IX
         jp Z, calculate_position_dead
         
 calculate_position_alive: 
